@@ -19,6 +19,7 @@ from openpyxl import load_workbook
 from openpyxl.cell import Cell
 from openpyxl.styles import Font
 from openpyxl.styles import PatternFill
+from openpyxl.styles import Alignment
 from openpyxl.utils import column_index_from_string
 from openpyxl.utils.exceptions import InvalidFileException
 
@@ -140,6 +141,7 @@ class CellStyler(Styler):
         to set the style to a Cell and return it.
 
     Supported styles:
+        `name`:         Font.name
         `style`:        Font.style
         `color`:        Font.color
         `size`:         Font.size
@@ -154,12 +156,15 @@ class CellStyler(Styler):
         `bgColor`:      PatternFill.bgColor
         `fill_type`:    PatternFill.fill_type
 
+        `warpText`:     Alignment
+
         `width`:        width
         `height`:       height
     """
 
     SUPPORTED_STYLES = {
         "font": (
+            "name",
             "style",
             "color",
             "size",
@@ -171,6 +176,7 @@ class CellStyler(Styler):
             "shadow",
         ),
         "pattern_fill": ("fgColor", "bgColor", "fill_type"),
+        "alignment": ("warpText",),
         # ...
         # ...
         "others": ("width", "height"),
@@ -190,13 +196,13 @@ class CellStyler(Styler):
             self._styled_cell(style, cell)
 
     def _styled_cell(self, style: dict, cell: Cell) -> None:
-        if not style:
-            return cell
-        self._set_font(cell, style)
-        self._set_pattern_fill(cell, style)
-        # ...
-        # ...
-        self._set_others(cell, style)
+        if style:
+            self._set_font(cell, style)
+            self._set_pattern_fill(cell, style)
+            # ...
+            # ...
+            self._set_others(cell, style)
+        return cell
 
     def _set_font(self, cell: Cell, style: dict) -> None:
         font = Font(
@@ -217,6 +223,16 @@ class CellStyler(Styler):
             }
         )
         cell.fill = pattern_fill
+
+    def _set_aligment(self, cell: Cell, style: dict) -> None:
+        alignment = Alignment(
+            **{
+                k: v
+                for k, v in style.items()
+                if k in self.SUPPORTED_STYLES["alignment"]
+            }
+        )
+        cell.alignment = alignment
 
     def _set_others(self, cell: Cell, style: dict) -> None:
         for k, v in style.items():
@@ -367,13 +383,8 @@ class IterStyledCell(t.List):
         self._cells = self._styled_cells()
 
     def __iter__(self):
-        return self
-
-    def __next__(self):
         for cell in self._cells:
-            # ! the cell.cell is the truly Cell in WorkSheet.
-            return cell.cell
-        raise StopIteration
+            yield cell.cell
 
     def _styled_cells(self):
         if isinstance(
@@ -728,7 +739,7 @@ class WorkSheet(_WorkSheetMixin):
                 )
             self.ws.append(
                 IterStyledCell(
-                    {self.headers[k]: v for k, v in iterable.items()},
+                    {v: iterable.get(k) for k, v in self.headers.items()},
                     style,
                     self,
                 )
