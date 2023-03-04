@@ -651,8 +651,3 @@ class TestExcelMixin(_WorkSheetMixin):
             for i, col_name in enumerate(self._gen_col_name()):
                 assert col_name == expected[i]
 
-defg
-
-2222
-3333
-4444
